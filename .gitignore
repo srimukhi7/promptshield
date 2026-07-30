@@ -1,31 +1,45 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-venv/
+# ------------------------
+# Python
+# ------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
 
-# Environment variables — never commit your keys
+# Virtual environments
+.venv/
+venv/
+
+# ------------------------
+# Environment variables
+# ------------------------
 .env
 .env.local
 .env.*.local
 
-# Build outputs
-dist/
-build/
-out/
-.next/
+# ------------------------
+# Python caches
+# ------------------------
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
-# Logs
-*.log
-npm-debug.log*
+# ------------------------
+# Model cache (optional)
+# Uncomment if you download models into your project
+# models/
+# ------------------------
 
-# OS
-.DS_Store
-Thumbs.db
-
+# ------------------------
 # IDE
+# ------------------------
 .vscode/
 .idea/
 *.swp
+
+# ------------------------
+# OS
+# ------------------------
+.DS_Store
+Thumbs.db
