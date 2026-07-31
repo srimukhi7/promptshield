@@ -5,78 +5,80 @@ Purpose:
 Demonstrates the complete privacy-auditor pipeline.
 
 Flow:
-
-Input Text
-      ↓
-ML Detection
-      ↓
-Detected Findings
-      ↓
-Redaction
-      ↓
-Safe Output
+- Load the ML detector
+- Analyze synthetic text
+- Display detected findings
+- Display the heuristic risk summary
+- Display the safer redacted version
 """
 
-from detector import (
-    load_detector,
-    detect_sensitive_information,
-)
+from __future__ import annotations
 
-from redactor import (
-    redact_text,
-)
+from typing import Any
+
+from analyzer import analyze_text
+from detector import load_detector
 
 
-def main():
+def print_report(
+    title: str,
+    text: str,
+    detector: Any,
+) -> None:
+    """Analyze one example and print the complete report."""
+    report = analyze_text(text, detector)
 
-    detector = load_detector()
-
-    text = (
-        "Employee Maya Patel can be reached at "
-        "maya.patel@example.com. "
-        "Her SSN is 123-45-6789."
-    )
-
-    print("=" * 70)
-    print("ORIGINAL TEXT")
+    print("\n" + "=" * 70)
+    print(title.upper())
     print("=" * 70)
 
-    print(text)
+    print("\nOriginal text:")
+    print(report["original_text"])
 
-    findings = detect_sensitive_information(
-        text,
-        detector,
-    )
+    print("\nDetected findings:")
 
-    print("\n")
-    print("=" * 70)
-    print("DETECTED FINDINGS")
-    print("=" * 70)
-
-    if not findings:
-        print("No sensitive information detected.")
-
+    if not report["findings"]:
+        print("None")
     else:
-
-        for finding in findings:
-
+        for finding in report["findings"]:
             print(
-                f"{finding['label']:<20}"
+                f"- {finding['label']:<20}"
                 f"{finding['text']:<30}"
-                f"{finding['score']:.3f}"
+                f"Confidence: {finding['score']:.3f}"
             )
 
-    redacted = redact_text(
-        text,
-        findings,
+    print("\nPrivacy summary:")
+    print(f"- Findings: {report['entity_count']}")
+    print(f"- Risk score: {report['risk_score']}/100")
+    print(f"- Risk level: {report['risk_level']}")
+
+    print("\nRedacted text:")
+    print(report["redacted_text"])
+
+
+def main() -> None:
+    detector = load_detector()
+
+    risky_text = (
+        "Employee Maya Patel can be reached at "
+        "maya.patel@example.com. Her SSN is 123-45-6789."
     )
 
-    print("\n")
-    print("=" * 70)
-    print("REDACTED TEXT")
-    print("=" * 70)
+    safe_text = "The project meeting is scheduled for 3:00 PM."
 
-    print(redacted)
+    print("\nModel loaded successfully.")
+
+    print_report(
+        title="Risky Example",
+        text=risky_text,
+        detector=detector,
+    )
+
+    print_report(
+        title="Safe Example",
+        text=safe_text,
+        detector=detector,
+    )
 
 
 if __name__ == "__main__":
