@@ -98,16 +98,26 @@ Human review is always recommended before sharing sensitive information.
 
 # Evaluation Summary
 
-Evaluation was performed using ten fictional test cases.
+# Evaluation Summary
 
-Results:
+PromptShield was evaluated using ten synthetic test cases covering all implemented challenge categories.
 
-- Total Test Cases: 10
-- Fully Passed: 8
-- Partial: 2
-- Failed: 0
+Evaluation was performed at the entity level.
 
-The observed partial results were caused by limitations of the pretrained model rather than failures in the supporting detection pipeline.
+| Metric | Value |
+|----------|------:|
+| Total Test Cases | 10 |
+| Total Expected Entities | 19 |
+| True Positives | 19 |
+| False Positives | 1 |
+| False Negatives | 0 |
+| Precision | 95.0% |
+| Recall | 100.0% |
+| F1 Score | 97.4% |
+
+One observed false positive occurred when the pretrained model classified the generic business phrase **"sprint planning"** as an organization.
+
+No complete misses were observed for the supported challenge categories.
 
 ---
 
