@@ -6,14 +6,9 @@ Generates a safer version of text by replacing detected sensitive
 information with readable placeholder labels.
 
 Responsibilities:
-- Map model labels to user-friendly redaction labels
+- Map detection labels to user-friendly redaction labels
 - Replace sensitive spans without changing safe text
-- Handle findings from right to left so character positions remain valid
-
-This module does NOT:
-- Run the ML model
-- Build the user interface
-- Decide whether a model prediction is correct
+- Process spans from right to left so offsets remain valid
 """
 
 from __future__ import annotations
@@ -29,6 +24,8 @@ REDACTION_LABELS = {
     "ORGANIZATION": "[ORGANIZATION]",
     "TITLE": "[JOB TITLE]",
     "PASSWORD": "[PASSWORD]",
+    "API_KEY": "[API KEY]",
+    "ACCESS_TOKEN": "[ACCESS TOKEN]",
     "CREDIT_CARD": "[CREDIT CARD]",
     "FINANCIAL": "[FINANCIAL INFORMATION]",
     "IBAN_CODE": "[IBAN]",
@@ -38,17 +35,19 @@ REDACTION_LABELS = {
     "US_PASSPORT": "[PASSPORT]",
     "US_SSN": "[SSN]",
     "IP_ADDRESS": "[IP ADDRESS]",
+    "EMPLOYEE_ID": "[EMPLOYEE ID]",
+    "VOLUNTEER_ID": "[VOLUNTEER ID]",
+    "CLIENT_ID": "[CLIENT ID]",
+    "CONFIDENTIAL_INFORMATION": "[CONFIDENTIAL INFORMATION]",
 }
 
 
 def get_redaction_label(entity_label: str) -> str:
-    """
-    Return a readable placeholder for a detected entity label.
-
-    Unknown labels receive a generic placeholder so the function
-    remains safe if the detector later supports additional labels.
-    """
-    return REDACTION_LABELS.get(entity_label, "[SENSITIVE INFORMATION]")
+    """Return a readable placeholder for a detected entity label."""
+    return REDACTION_LABELS.get(
+        entity_label,
+        "[SENSITIVE INFORMATION]",
+    )
 
 
 def redact_text(
@@ -58,8 +57,8 @@ def redact_text(
     """
     Replace detected sensitive spans with placeholder labels.
 
-    Findings are processed from right to left. This prevents an earlier
-    replacement from changing the character positions of later findings.
+    Findings are processed from right to left so replacements do not
+    invalidate character offsets for findings earlier in the text.
     """
     if not text:
         return ""
@@ -95,45 +94,53 @@ def redact_text(
 
 
 def main() -> None:
-    """
-    Run a small synthetic smoke test.
-    """
+    """Run a synthetic redaction smoke test."""
     sample_text = (
-        "Employee Maya Patel can be reached at "
-        "maya.patel@example.com. Her SSN is 123-45-6789."
+        "STRICTLY CONFIDENTIAL. "
+        "Employee Maya Patel has employee ID EMP-4821. "
+        "Temporary API key: sk-test-4f92a8d71c6b3e50."
     )
 
     sample_findings = [
         {
+            "label": "CONFIDENTIAL_INFORMATION",
+            "text": "STRICTLY CONFIDENTIAL",
+            "start": 0,
+            "end": 21,
+            "score": 1.0,
+            "source": "supporting_rule",
+        },
+        {
             "label": "PERSON",
             "text": "Maya Patel",
-            "start": 9,
-            "end": 19,
-            "score": 0.781,
+            "start": 32,
+            "end": 42,
+            "score": 0.90,
+            "source": "ml",
         },
         {
-            "label": "EMAIL_ADDRESS",
-            "text": "maya.patel@example.com",
-            "start": 38,
-            "end": 60,
-            "score": 0.982,
+            "label": "EMPLOYEE_ID",
+            "text": "EMP-4821",
+            "start": 59,
+            "end": 67,
+            "score": 1.0,
+            "source": "supporting_rule",
         },
         {
-            "label": "US_SSN",
-            "text": "123-45-6789",
-            "start": 73,
-            "end": 84,
-            "score": 0.947,
+            "label": "API_KEY",
+            "text": "sk-test-4f92a8d71c6b3e50",
+            "start": 88,
+            "end": 114,
+            "score": 1.0,
+            "source": "supporting_rule",
         },
     ]
-
-    redacted = redact_text(sample_text, sample_findings)
 
     print("Original:")
     print(sample_text)
 
     print("\nRedacted:")
-    print(redacted)
+    print(redact_text(sample_text, sample_findings))
 
 
 if __name__ == "__main__":

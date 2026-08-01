@@ -2,18 +2,12 @@
 detector.py
 
 Purpose:
-Runs the pretrained ML model to detect sensitive information.
+Runs the pretrained ML model and merges its findings with supporting
+deterministic rules for structured sensitive values.
 
-Responsibilities:
-- Load the Hugging Face model
-- Detect sensitive entities
-- Normalize model output
-- Filter unsupported and low-confidence predictions
-
-This module does NOT:
-- Build the UI
-- Highlight text
-- Redact text
+The pretrained model performs primary detection. Specific supporting
+rules extend coverage for structured credentials, organizational IDs,
+and explicit confidentiality markers.
 """
 
 from __future__ import annotations
@@ -26,16 +20,12 @@ from transformers import (
     pipeline,
 )
 
-# --------------------------------------------------
-# Configuration
-# --------------------------------------------------
+from supporting_rules import detect_supporting_rules
+
 
 MODEL_NAME = "gravitee-io/bert-small-pii-detection"
-
-# Ignore weak predictions
 MIN_CONFIDENCE = 0.60
 
-# Only keep entity labels that are relevant for our hackathon
 SUPPORTED_LABELS = {
     "PERSON",
     "EMAIL_ADDRESS",
@@ -56,92 +46,52 @@ SUPPORTED_LABELS = {
 }
 
 
-# --------------------------------------------------
-# Model Loading
-# --------------------------------------------------
-
 def load_detector():
-    """
-    Loads the tokenizer, model, and Hugging Face
-    token-classification pipeline.
-    """
-
+    """Load the tokenizer, model, and token-classification pipeline."""
     print(f"Loading model: {MODEL_NAME}")
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME)
 
-    model = AutoModelForTokenClassification.from_pretrained(
-        MODEL_NAME
-    )
-
-    detector = pipeline(
+    return pipeline(
         task="token-classification",
         model=model,
         tokenizer=tokenizer,
         aggregation_strategy="simple",
     )
 
-    return detector
 
-
-# --------------------------------------------------
-# Post-processing
-# --------------------------------------------------
-
-def normalize_findings(
+def normalize_model_findings(
     text: str,
     raw_results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """
-    Converts raw Hugging Face output into a clean format.
-
-    The model sometimes inserts spaces into words
-    (especially emails and phone numbers).
-
-    Instead of using the returned "word",
-    we use the original character positions.
-    """
-
+    """Convert raw model output into clean, exact character spans."""
     findings: list[dict[str, Any]] = []
 
-    for result in sorted(raw_results, key=lambda r: int(r["start"])):
-
+    for result in sorted(
+        raw_results,
+        key=lambda item: int(item["start"]),
+    ):
         label = str(result["entity_group"])
         score = float(result["score"])
 
-        # Ignore unsupported labels
-        if label not in SUPPORTED_LABELS:
-            continue
-
-        # Ignore weak predictions
-        if score < MIN_CONFIDENCE:
+        if label not in SUPPORTED_LABELS or score < MIN_CONFIDENCE:
             continue
 
         start = int(result["start"])
         end = int(result["end"])
 
-        # Merge consecutive entities
         if findings:
-
             previous = findings[-1]
+            gap = text[int(previous["end"]):start]
 
-            gap = text[previous["end"]:start]
-
-            if (
-                previous["label"] == label
-                and gap.isspace()
-            ):
+            if previous["label"] == label and gap.isspace():
                 previous["end"] = end
-                previous["text"] = text[
-                    previous["start"]:end
-                ]
-
-                # Keep the lower confidence
+                previous["text"] = text[int(previous["start"]):end]
                 previous["score"] = min(
-                    previous["score"],
+                    float(previous["score"]),
                     score,
                 )
-
                 continue
 
         findings.append(
@@ -151,59 +101,99 @@ def normalize_findings(
                 "start": start,
                 "end": end,
                 "score": score,
+                "source": "ml",
             }
         )
 
     return findings
 
 
-# --------------------------------------------------
-# Public API
-# --------------------------------------------------
+def findings_overlap(
+    first: dict[str, Any],
+    second: dict[str, Any],
+) -> bool:
+    """Return True when two findings overlap in the original text."""
+    return (
+        int(first["start"]) < int(second["end"])
+        and int(second["start"]) < int(first["end"])
+    )
+
+
+def merge_findings(
+    ml_findings: list[dict[str, Any]],
+    rule_findings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Merge ML and supporting-rule findings.
+
+    Specific structured rules take priority when they overlap a broader
+    or partial ML prediction. For example, a complete API key replaces
+    a PASSWORD prediction covering only the key's suffix.
+    """
+    merged = list(ml_findings)
+
+    for rule_finding in rule_findings:
+        merged = [
+            existing
+            for existing in merged
+            if not findings_overlap(existing, rule_finding)
+        ]
+
+        merged.append(rule_finding)
+
+    return sorted(
+        merged,
+        key=lambda finding: int(finding["start"]),
+    )
+
 
 def detect_sensitive_information(
     text: str,
     detector,
 ) -> list[dict[str, Any]]:
-    """
-    Runs the detector on user text.
-    """
-
+    """Run the complete ML-first sensitive-information pipeline."""
     if not text.strip():
         return []
 
     raw_results = detector(text)
 
-    return normalize_findings(
+    ml_findings = normalize_model_findings(
         text,
         raw_results,
     )
 
+    rule_findings = detect_supporting_rules(text)
 
-# --------------------------------------------------
-# Smoke Test
-# --------------------------------------------------
+    return merge_findings(
+        ml_findings,
+        rule_findings,
+    )
 
-def main():
 
+def main() -> None:
+    """Run combined risky and safe smoke tests."""
     detector = load_detector()
 
     examples = [
-
         (
-            "Risky Example",
+            "Combined Risky Example",
             (
-                "Employee Maya Patel can be reached at "
-                "maya.patel@example.com. "
-                "Her SSN is 123-45-6789."
+                "STRICTLY CONFIDENTIAL\n"
+                "Employee Maya Patel has employee ID EMP-4821.\n"
+                "Volunteer Elena Cruz has volunteer ID VOL-7284.\n"
+                "Client Daniel Lee has client ID CLI-7934.\n"
+                "Contact Maya at maya.patel@example.com or "
+                "415-555-0136.\n"
+                "Her fictional SSN is 123-45-6789.\n"
+                "Temporary API key: sk-test-4f92a8d71c6b3e50.\n"
+                "Access token: abcdef1234567890xyz."
             ),
         ),
-
         (
             "Safe Example",
             (
-                "The project meeting is scheduled "
-                "for 3:00 PM."
+                "The internal team will meet tomorrow to discuss "
+                "the project roadmap."
             ),
         ),
     ]
@@ -211,18 +201,12 @@ def main():
     print("\nModel loaded successfully.")
 
     for title, text in examples:
+        findings = detect_sensitive_information(text, detector)
 
-        print("\n" + "=" * 60)
-        print(title)
-        print("=" * 60)
-
+        print("\n" + "=" * 70)
+        print(title.upper())
+        print("=" * 70)
         print(f"\nInput:\n{text}")
-
-        findings = detect_sensitive_information(
-            text,
-            detector,
-        )
-
         print("\nDetected entities:")
 
         if not findings:
@@ -230,11 +214,11 @@ def main():
             continue
 
         for finding in findings:
-
             print(
-                f"- {finding['label']}"
-                f" | {finding['text']}"
+                f"- {finding['label']:<28}"
+                f" | {finding['text']:<35}"
                 f" | Confidence: {finding['score']:.3f}"
+                f" | Source: {finding['source']}"
             )
 
 

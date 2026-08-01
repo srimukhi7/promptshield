@@ -5,14 +5,10 @@ Purpose:
 Coordinates the complete privacy analysis pipeline.
 
 Responsibilities:
-- Run ML detection
+- Run ML-first detection
 - Generate redacted text
-- Calculate a simple privacy risk score
-- Return one unified report
-
-The UI should only call:
-
-    analyze_text(...)
+- Calculate a simple heuristic privacy-risk score
+- Return one unified analysis report
 """
 
 from __future__ import annotations
@@ -23,15 +19,46 @@ from detector import detect_sensitive_information
 from redactor import redact_text
 
 
+HIGH_RISK_LABELS = {
+    "US_SSN",
+    "PASSWORD",
+    "API_KEY",
+    "ACCESS_TOKEN",
+    "CREDIT_CARD",
+    "US_BANK_NUMBER",
+    "IBAN_CODE",
+    "US_PASSPORT",
+    "US_DRIVER_LICENSE",
+    "US_ITIN",
+}
+
+MEDIUM_RISK_LABELS = {
+    "EMPLOYEE_ID",
+    "VOLUNTEER_ID",
+    "CLIENT_ID",
+    "CONFIDENTIAL_INFORMATION",
+    "FINANCIAL",
+    "IP_ADDRESS",
+}
+
+LOWER_RISK_LABELS = {
+    "PERSON",
+    "EMAIL_ADDRESS",
+    "PHONE_NUMBER",
+    "LOCATION",
+    "ORGANIZATION",
+    "TITLE",
+}
+
+
 def calculate_risk(
     findings: list[dict[str, Any]],
 ) -> tuple[int, str]:
     """
     Calculate a simple heuristic privacy-risk score.
 
-    This score is not a formal security or compliance assessment.
-    It is a user-facing summary based on the sensitivity of the
-    detected entity types.
+    This score is a user-facing summary and is not a formal security,
+    legal, privacy, or compliance assessment.
     """
     score = 0
 
@@ -40,27 +67,12 @@ def calculate_risk(
 
         if label == "US_SSN":
             score += 40
-
-        elif label in {
-            "PASSWORD",
-            "CREDIT_CARD",
-            "FINANCIAL",
-            "IBAN_CODE",
-            "US_BANK_NUMBER",
-            "US_PASSPORT",
-            "US_DRIVER_LICENSE",
-            "US_ITIN",
-        }:
-            score += 30
-
-        elif label in {
-            "EMAIL_ADDRESS",
-            "PHONE_NUMBER",
-            "PERSON",
-            "IP_ADDRESS",
-        }:
+        elif label in HIGH_RISK_LABELS:
+            score += 35
+        elif label in MEDIUM_RISK_LABELS:
+            score += 25
+        elif label in LOWER_RISK_LABELS:
             score += 15
-
         else:
             score += 10
 
@@ -80,13 +92,7 @@ def analyze_text(
     text: str,
     detector: Any,
 ) -> dict[str, Any]:
-    """
-    Run the complete end-to-end privacy analysis.
-
-    Returns:
-        A dictionary containing the original text, findings,
-        redacted text, finding count, risk score, and risk level.
-    """
+    """Run the complete privacy-analysis pipeline."""
     findings = detect_sensitive_information(
         text,
         detector,
