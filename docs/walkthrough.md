@@ -2,7 +2,7 @@
 
 > **Add your walkthrough video link here before submission.**
 
-**Video Link:** <!-- e.g. https://www.loom.com/share/your-video-id -->
+**Video Link:** <https://www.loom.com/share/e3e66230099147e8bd986fd4e50343f2>
 
 The video should be ~5 minutes and cover:
 - A live demo of your deployed tool
