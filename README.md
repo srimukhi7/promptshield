@@ -1,8 +1,22 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/kIswDrNZ)
 # CDF Shadow AI Hackathon
-**Live URL:** <!-- Add your deployment URL here before submission e.g. https://your-app.vercel.app -->
+**Live URL:** <https://promptshield-srimukhi.streamlit.app>
 
 Welcome! This is your personal repository for the CDF Shadow AI Hackathon. The problem statement is included in this repo - read it carefully before you start.
+
+## 🛡 Project Summary
+
+PromptShield is an ML-powered privacy auditing application that detects and redacts sensitive information before users share text with public AI tools.
+
+The application uses the pretrained Hugging Face model `gravitee-io/bert-small-pii-detection` together with lightweight supporting detection rules to identify:
+
+- Names & Contact Information
+- Government or Financial Identifiers
+- Passwords, API Keys & Credentials
+- Employee, Client & Volunteer Information
+- Confidential Organizational / Project Information
+
+PromptShield highlights sensitive information, explains why it may be risky, generates a privacy risk score, and creates a safer redacted version of the original text.
 
 ---
 
@@ -40,14 +54,14 @@ See [`problem_statement.md`](./problem_statement.md) for the full brief.
 
 Push to your designated repository before the **5-day deadline**. Your repo state at the deadline is your submission.
 
-- [ ] Live deployment URL added at the top of this README - **mandatory**
-- [ ] Completed planning document in `planning/planning.md`
-- [ ] Working application in `src/`
-- [ ] At least **10 test cases** (including safe examples that stay unchanged) documented in `docs/` or `planning/`
-- [ ] `docs/walkthrough.md` - walkthrough video link filled in
-- [ ] `docs/architecture.md` - architecture overview and detection design filled in
-- [ ] `docs/reflection.md` - reflection filled in
-- [ ] Clean commit history - see note below
+- [x] Live deployment URL added at the top of this README - **mandatory**
+- [x] Completed planning document in `planning/planning.md`
+- [x] Working application in `src/`
+- [x] At least **10 test cases** (including safe examples that stay unchanged) documented in `docs/` or `planning/`
+- [x] `docs/walkthrough.md` - walkthrough video link filled in
+- [x] `docs/architecture.md` - architecture overview and detection design filled in
+- [x] `docs/reflection.md` - reflection filled in
+- [x] Clean commit history - see note below
 
 ---
 
